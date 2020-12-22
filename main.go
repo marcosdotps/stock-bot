@@ -93,6 +93,7 @@ func main() {
 	sendTelegramMsg(adminID, "Bot restarted. Keep going!")			
 	scheduler.AddFunc("0 * * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })			
 	scheduler.AddFunc("30 * * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })	
+	scheduler.Start()
 
 	wg.Add(1)
 	go func() {
@@ -137,6 +138,7 @@ func main() {
 	}()
 
 	wg.Wait()
+	scheduler.Stop()
 
 }
 
