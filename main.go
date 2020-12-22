@@ -91,6 +91,8 @@ func main() {
 
 	var wg sync.WaitGroup
 	sendTelegramMsg(adminID, "Bot restarted. Keep going!")
+	scheduler.AddFunc("0 30 * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })			
+	scheduler.AddFunc("0 00 * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })			
 
 	wg.Add(1)
 	go func() {
@@ -136,11 +138,6 @@ func main() {
 
 	wg.Wait()
 
-	go func() {		
-		for true {
-			scheduler.AddFunc("0 30 * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })			
-		}
-	}()
 }
 
 func checkStock(c *colly.Collector, store Store) (p Prospect) {
