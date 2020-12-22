@@ -91,8 +91,8 @@ func main() {
 
 	var wg sync.WaitGroup
 	sendTelegramMsg(adminID, "Bot restarted. Keep going!")			
-	scheduler.AddFunc("0 00 * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })			
-	scheduler.AddFunc("0 30 * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })	
+	scheduler.AddFunc("0 * * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })			
+	scheduler.AddFunc("30 * * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })	
 
 	wg.Add(1)
 	go func() {
