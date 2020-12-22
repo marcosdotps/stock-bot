@@ -11,8 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
-    "github.com/robfig/cron/v3"
+	"time"    
 
 	"github.com/gocolly/colly"
 )
@@ -74,7 +73,7 @@ var (
 	adminID string = os.Getenv("ADMIN_TELEGRAM_ID")
 	groupID string = os.Getenv("GROUP_TELEGRAM_ID")
 	token   string = os.Getenv("TELEGRAM_BOT_TOKEN")
-	scheduler = cron.New()
+	fire    string =  "\U0001F525"
 
 )
 
@@ -90,11 +89,12 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
-	sendTelegramMsg(adminID, "Bot restarted. Keep going!")			
-	scheduler.AddFunc("0 * * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })			
-	scheduler.AddFunc("30 * * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })	
-	scheduler.Start()
+	sendTelegramMsg(adminID, "Bot restarted. Keep going!")	
 
+	for range time.Tick(1 * time.Minute) {
+		sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%s%v", fire, strings.Join(scrappedURLs, fmt.Sprintf("\n%s", fire))))
+	}		
+		
 	wg.Add(1)
 	go func() {
 		for true {
@@ -137,8 +137,7 @@ func main() {
 		}
 	}()
 
-	wg.Wait()
-	scheduler.Stop()
+	wg.Wait()	
 
 }
 
