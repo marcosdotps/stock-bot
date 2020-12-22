@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+    "github.com/robfig/cron/v3"
 
 	"github.com/gocolly/colly"
 )
@@ -68,10 +69,13 @@ var (
 		Value:     "buy-button",
 	}
 
+	scrappedURLs []string = []string{amazon.URL, pcc.URL, game.URL, eci.URL, mm.URL}
 	firefox string = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0"
 	adminID string = os.Getenv("ADMIN_TELEGRAM_ID")
 	groupID string = os.Getenv("GROUP_TELEGRAM_ID")
 	token   string = os.Getenv("TELEGRAM_BOT_TOKEN")
+	scheduler = cron.New()
+
 )
 
 func main() {
@@ -131,6 +135,12 @@ func main() {
 	}()
 
 	wg.Wait()
+
+	go func() {		
+		for true {
+			scheduler.AddFunc("0 30 * * * *", func() { sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%v",scrappedURLs) ) })			
+		}
+	}()
 }
 
 func checkStock(c *colly.Collector, store Store) (p Prospect) {
