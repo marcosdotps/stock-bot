@@ -11,7 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"    
+	"time"
+	"runtime"
 
 	"github.com/gocolly/colly"
 )
@@ -22,6 +23,7 @@ type Store struct {
 	URL       string
 	Selector  string
 	Attribute string
+	Title     string
 	Value     string
 }
 
@@ -36,8 +38,9 @@ var (
 		Name:      "Amazon",
 		URL:       "https://www.amazon.es/Playstation-Consola-PlayStation-5/dp/B08KKJ37F7/ref=sr_1_2",
 		Selector:  "input",
-		Attribute: "name",
-		Value:     "submit.add-to-cart",
+		Attribute: "id",
+		Value:     "add-to-cart-button",		
+		Title:	   "Consola PlayStation 5: Amazon.es: Videojuegos",
 	}
 	game = Store{
 		Name:      "Game",
@@ -73,11 +76,13 @@ var (
 	adminID string = os.Getenv("ADMIN_TELEGRAM_ID")
 	groupID string = os.Getenv("GROUP_TELEGRAM_ID")
 	token   string = os.Getenv("TELEGRAM_BOT_TOKEN")
-	fire    string =  "\U0001F525"
+	fire    string =  "\U0001F525"	
+	m runtime.MemStats
 
 )
 
-func main() {
+func main() {	
+
 	if adminID == "" {
 		log.Fatal("FATAL! ADMIN_TELEGRAM_ID not present...")
 	}
@@ -87,14 +92,10 @@ func main() {
 	if token == "" {
 		log.Fatal("FATAL! TELEGRAM_BOT_TOKEN not present...")
 	}
-
+	
 	var wg sync.WaitGroup
-	sendTelegramMsg(adminID, "Bot restarted. Keep going!")	
-
-	for range time.Tick(1 * time.Minute) {
-		sendTelegramMsg(adminID, fmt.Sprintf("We keep waiting stock for:\n%s%v", fire, strings.Join(scrappedURLs, fmt.Sprintf("\n%s", fire))))
-	}		
-		
+	sendTelegramMsg(adminID, "Bot restarted. Keep going!")				
+			
 	wg.Add(1)
 	go func() {
 		for true {
@@ -137,23 +138,49 @@ func main() {
 		}
 	}()
 
+	go func() {
+		for range time.Tick(24 * time.Hour) {
+			sendTelegramMsg(groupID, fmt.Sprintf("We keep waiting stock for:\n%s%v", fire, strings.Join(scrappedURLs, fmt.Sprintf("\n%s", fire))))
+		}	
+	}()
+
+	go func(){
+		for range time.Tick(5 * time.Minute) {
+			sendTelegramMsg(adminID, printMemUsage())
+		}
+	}()
+
 	wg.Wait()	
 
 }
 
 func checkStock(c *colly.Collector, store Store) (p Prospect) {
-	p.Result = fmt.Sprintf("No stock in %s,", store.Name)
+	var valid bool = false	
+	p.Result = fmt.Sprintf("No stock in %s,", store.Name)	
 	c.OnHTML(store.Selector, func(e *colly.HTMLElement) {
 		input := e.Attr(store.Attribute)
 		p.StatusCode = strconv.Itoa(e.Response.StatusCode)
 		if strings.Contains(strings.ToLower(input), store.Value) {
 			p.Result = fmt.Sprintf("You can buy it! %s\n", e.Request.URL)
-			notify(p)
+			valid = true								
 		}
 	})
+	c.OnHTML("head title", func(e *colly.HTMLElement) { // Title
+        if store.Name=="Amazon" && store.Title != e.Text{
+			valid = false
+			fmt.Println("Take care: Amazon doing thing with product page!")
+		}
+    })
+
+
 	c.Visit(store.URL)
 	c.Wait()
+		
+	if valid{
+		notify(p)
+	}
 	time.Sleep(time.Duration(banControl(p)) * time.Second)
+
 	return
 }
 
@@ -167,7 +194,7 @@ func notify(p Prospect) {
 
 func banControl(p Prospect) (interval int) {
 	if p.StatusCode == "200" {
-		interval = (rand.Intn(15) + 30)
+		interval = (rand.Intn(15) + 5)
 	} else {
 		log.Printf("ERROR! - Status code is not 200... status code: %s delaying next scrap  x100\n", p.StatusCode)
 		l, err := sendTelegramMsg(adminID, fmt.Sprintf("Problems with an url %s: Status code is %s", p.Result, p.StatusCode))
@@ -204,4 +231,16 @@ func sendTelegramMsg(chatID string, text string) (string, error) {
 	log.Printf("Body of Telegram Response: %s", bodyString)
 
 	return bodyString, nil
+}
+
+func printMemUsage() string {
+	
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	return fmt.Sprintf("Bot instance stats:\n\tAlloc = %v MiB\n\tHeapAlloc = %v MiB\n\tSys = %v MiB\n\tNumGC = %v\n", bToMb(m.Alloc), bToMb(m.HeapAlloc), bToMb(m.Sys), m.NumGC)
+
+}
+
+func bToMb(b uint64) uint64 {
+    return b / 1024 / 1024
 }
